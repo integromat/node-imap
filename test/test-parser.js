@@ -310,6 +310,15 @@ var CR = '\r', LF = '\n', CRLF = CR + LF;
               ],
     what: 'Untagged FETCH with non-body literal'
   },
+  { source: ['* 1 FETCH (12345 NIL)', CRLF],
+    expected: [ { type: 'fetch',
+                  num: 1,
+                  textCode: undefined,
+                  text: { '12345': null }
+                }
+              ],
+    what: 'Untagged FETCH with integer-shaped key token (regression: no TypeError on .toLowerCase)'
+  },
   { source: ['* 12 FETCH (INTERNALDATE {2',
              '6}' + CRLF + '17-Jul-1996 02:44:25 -0700)' + CRLF],
     expected: [ { type: 'fetch',
