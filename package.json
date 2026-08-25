@@ -1,5 +1,5 @@
 { "name": "@integromat/imap",
-  "version": "0.8.22",
+  "version": "0.8.23",
   "author": "Brian White <mscdex@mscdex.net>",
   "description": "An IMAP module for node.js that makes communicating with IMAP servers easy",
   "main": "./lib/Connection",
