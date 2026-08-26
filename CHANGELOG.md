@@ -4,6 +4,54 @@ Changes made in this fork. Versions up to and including 0.8.19 come from
 upstream [mscdex/node-imap](https://github.com/mscdex/node-imap) and are not
 listed here.
 
+## 0.8.24
+
+Merged upstream [mscdex/node-imap](https://github.com/mscdex/node-imap) up to
+`9918f08`, which is the last commit there (February 2022), and followed up on
+the two gaps it left behind.
+
+- Fixed TLS connections not sending SNI at all. `tls.connect()` sends the
+  `server_name` extension only when `servername` is set explicitly — node never
+  derives it from `host`, which is used just to dial the connection and to check
+  the certificate identity. Servers that serve several domains from one address
+  (Gmail, Exchange Online, anything behind a load balancer) therefore answered
+  with a default certificate that does not match the requested host, surfacing as
+  `Error: self signed certificate` / `DEPTH_ZERO_SELF_SIGNED_CERT` and forcing
+  callers to pass `tlsOptions.servername` by hand.
+
+  Imported from upstream `9918f08` for `connect()` (implicit TLS) and extended to
+  `_starttls()`, which builds its own `tlsOptions` and stayed uncovered upstream.
+  In both paths the assignment happens before the caller's `tlsOptions` are
+  copied over, so an explicit `tlsOptions.servername` still wins.
+
+  References:
+  - [mscdex/node-imap#724](https://github.com/mscdex/node-imap/issues/724) —
+    "Servername option is mandatory with gmail and Openssl 1.1.1", reporting
+    `Error: self signed certificate` against `imap.gmail.com` and the manual
+    `servername` workaround.
+  - [mscdex/node-imap#866](https://github.com/mscdex/node-imap/issues/866) — the
+    same `DEPTH_ZERO_SELF_SIGNED_CERT` symptom, misattributed to a MITM in the
+    upstream discussion.
+  - [RFC 6066 §3](https://www.rfc-editor.org/rfc/rfc6066#section-3) — defines
+    `server_name` and restricts it to host names, which is why the connection
+    host must be a name and not an IP for SNI to be meaningful.
+
+- Removed the dead `require('readable-stream')` fallback in `Parser.js`. Upstream
+  `7dbc664` dropped `readable-stream` from the dependencies but left the
+  `require('stream').Readable || require('readable-stream').Readable` fallback in
+  place. At runtime the `||` short-circuits, but bundlers (webpack, esbuild, ncc)
+  resolve `require()` statically and fail on the missing module.
+
+- Replaced the deprecated `Buffer` constructor with `Buffer.from()` /
+  `Buffer.allocUnsafe()` and the `'binary'` encoding alias with `'latin1'`
+  (upstream `7dbc664`). Both `allocUnsafe()` call sites overwrite the whole
+  buffer with `copy()` before reading it. The same commit dropped the
+  `readable-stream` dependency and raised `engines.node` to `>=10.0.0`.
+
+- Added regression tests that read the TLS handshake off the wire and assert the
+  client really announces the configured host, independent of the TLS version and
+  without certificate fixtures.
+
 ## 0.8.23
 
 - Fixed `_login()` aborting with `Logging in is disabled on this server` whenever
