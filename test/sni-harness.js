@@ -30,8 +30,10 @@ function captureSNI(options = {}) {
 
     const srv = net.createServer((sock) => {
       let upgrading = false;
+      let done = false;
 
       const finish = (data) => {
+        done = true;
         sock.destroy();
         srv.close();
         clearTimeout(timeout);
@@ -39,8 +41,23 @@ function captureSNI(options = {}) {
         resolve({ sni: parseSNI(data), cmds });
       };
 
+      // A ClientHello can in principle be split across several TCP segments,
+      // so collect bytes until the first TLS record is complete rather than
+      // parsing whatever the first 'data' event happened to carry.
+      let hello = Buffer.alloc(0);
+      const onHandshake = (data) => {
+        if (done)
+          return;
+        hello = Buffer.concat([hello, data]);
+        if (hello.length < 5)
+          return;
+        if (hello.length < 5 + hello.readUInt16BE(3))
+          return;
+        finish(hello);
+      };
+
       if (!options.starttls) {
-        sock.once('data', finish);
+        sock.on('data', onHandshake);
         return;
       }
 
@@ -49,7 +66,7 @@ function captureSNI(options = {}) {
       sock.on('data', (data) => {
         if (upgrading) {
           // everything after our STARTTLS response is handshake data
-          finish(data);
+          onHandshake(data);
           return;
         }
 
