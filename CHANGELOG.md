@@ -24,6 +24,14 @@ the two gaps it left behind.
   In both paths the assignment happens before the caller's `tlsOptions` are
   copied over, so an explicit `tlsOptions.servername` still wins.
 
+  The default is only derived from `host` when `host` is a name.
+  [RFC 6066 §3](https://www.rfc-editor.org/rfc/rfc6066#section-3) does not permit
+  IP addresses in `server_name`, and node warns about them (`DEP0123`, "This will
+  be ignored in a future version"), so defaulting one in would only trade a
+  missing extension for a deprecated one. An explicit `tlsOptions.servername` is
+  still passed through unchanged even when it is an IP — that call belongs to the
+  caller, not to this library.
+
   References:
   - [mscdex/node-imap#724](https://github.com/mscdex/node-imap/issues/724) —
     "Servername option is mandatory with gmail and Openssl 1.1.1", reporting
@@ -50,7 +58,9 @@ the two gaps it left behind.
 
 - Added regression tests that read the TLS handshake off the wire and assert the
   client really announces the configured host, independent of the TLS version and
-  without certificate fixtures.
+  without certificate fixtures. They cover both the implicit TLS and the STARTTLS
+  path, and pin the IP behaviour down as well: no default for an IP host, but an
+  explicitly configured IP `servername` is still sent.
 
 ## 0.8.23
 
